@@ -346,7 +346,7 @@ export default function StyleScheinApp() {
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   // Belegte Slots für ein Datum von n8n laden
-  const loadBookedSlots = useCallback(async (dateStr) => {
+  const loadBookedSlots = useCallback(async (dateStr, extraBlockedTime) => {
     if (!dateStr) return;
     setLoadingSlots(true);
     try {
@@ -359,14 +359,19 @@ export default function StyleScheinApp() {
       let data;
       try { data = JSON.parse(text); } catch(e) { data = {}; }
       if (data.success && data.termine) {
-        // Nur Termine für das gewählte Datum filtern
         const slots = data.termine
           .filter(t => t.datum === dateStr)
           .map(t => t.uhrzeit);
+        // Auch den gerade abgelehnten Slot hinzufügen
+        if (extraBlockedTime && !slots.includes(extraBlockedTime)) {
+          slots.push(extraBlockedTime);
+        }
         setBookedSlots(slots);
       }
     } catch(e) {
-      setBookedSlots([]);
+      // Bei Fehler trotzdem den abgelehnten Slot blocken
+      if (extraBlockedTime) setBookedSlots([extraBlockedTime]);
+      else setBookedSlots([]);
     }
     setLoadingSlots(false);
   }, []);
@@ -544,7 +549,10 @@ export default function StyleScheinApp() {
         // Termin ist belegt — zurück zur Zeitauswahl
         setToast({ message: data.message || "Dieser Termin ist leider belegt — bitte wähle eine andere Zeit", type: "error" });
         setSlotError(selectedDate + " " + selectedTime);
-        loadBookedSlots(selectedDate); // Belegte Slots neu laden
+        // Abgelehnte Zeit sofort als belegt markieren + alle anderen laden
+        setBookedSlots(prev => [...prev, selectedTime]);
+        loadBookedSlots(selectedDate, selectedTime);
+        setSelectedTime(null); // Auswahl zurücksetzen!
         setBookingStep(1);
         setIsLoading(false);
         return;
@@ -944,18 +952,25 @@ export default function StyleScheinApp() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
                   {getTimeSlotsForDate(selectedDate).map(t => {
                     const booked = bookedSlots.includes(t) || isSlotBooked(selectedDate, t);
-                    const sel = selectedTime === t;
+                    // Vergangene Uhrzeiten für heute erkennen
+                    const now = new Date();
+                    const isToday = selectedDate === formatDate(now).full;
+                    const [sh, sm] = t.split(":").map(Number);
+                    const isPast = isToday && (sh < now.getHours() || (sh === now.getHours() && sm <= now.getMinutes()));
+                    const blocked = booked || isPast;
+                    const sel = !blocked && selectedTime === t;
                     return (
-                      <button key={t} onClick={() => !booked && handleSlotClick(selectedDate, t)} style={{
+                      <button key={t} onClick={() => !blocked && handleSlotClick(selectedDate, t)} style={{
                         padding: "12px", borderRadius: 10, border: "none",
                         fontSize: 14, fontWeight: 600,
-                        cursor: booked ? "not-allowed" : "pointer",
+                        cursor: blocked ? "not-allowed" : "pointer",
                         fontFamily: "'Cormorant Garamond', serif", transition: "all 0.2s",
-                        background: sel ? C.gold : booked ? "rgba(217,64,64,0.08)" : C.bgCard,
-                        color: sel ? C.bg : booked ? "rgba(217,64,64,0.35)" : C.text,
-                        textDecoration: booked ? "line-through" : "none",
-                        border: booked ? "1px solid rgba(217,64,64,0.12)" : sel ? "none" : "1px solid rgba(255,255,255,0.04)",
-                        opacity: booked ? 0.5 : 1,
+                        background: booked ? "rgba(217,64,64,0.1)" : isPast ? "rgba(255,255,255,0.02)" : sel ? C.gold : C.bgCard,
+                        color: booked ? "rgba(217,64,64,0.5)" : isPast ? "rgba(255,255,255,0.15)" : sel ? C.bg : C.text,
+                        textDecoration: booked ? "line-through" : isPast ? "line-through" : "none",
+                        border: booked ? "1px solid rgba(217,64,64,0.2)" : sel ? "none" : "1px solid rgba(255,255,255,0.04)",
+                        opacity: blocked ? 0.5 : 1,
+                        pointerEvents: blocked ? "none" : "auto",
                       }}>{t}</button>
                     );
                   })}
