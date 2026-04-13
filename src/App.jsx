@@ -342,6 +342,34 @@ export default function StyleScheinApp() {
   const [bookingStep, setBookingStep] = useState(0);
   const [showAltSlots, setShowAltSlots] = useState(null);
   const [slotError, setSlotError] = useState(null);
+  const [bookedSlots, setBookedSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
+  // Belegte Slots für ein Datum von n8n laden
+  const loadBookedSlots = useCallback(async (dateStr) => {
+    if (!dateStr) return;
+    setLoadingSlots(true);
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "list", telefon: "", role: "admin" })
+      });
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e) { data = {}; }
+      if (data.success && data.termine) {
+        // Nur Termine für das gewählte Datum filtern
+        const slots = data.termine
+          .filter(t => t.datum === dateStr)
+          .map(t => t.uhrzeit);
+        setBookedSlots(slots);
+      }
+    } catch(e) {
+      setBookedSlots([]);
+    }
+    setLoadingSlots(false);
+  }, []);
   const [userPhone, setUserPhone] = useState("");
   const [savedName, setSavedName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -516,6 +544,7 @@ export default function StyleScheinApp() {
         // Termin ist belegt — zurück zur Zeitauswahl
         setToast({ message: data.message || "Dieser Termin ist leider belegt — bitte wähle eine andere Zeit", type: "error" });
         setSlotError(selectedDate + " " + selectedTime);
+        loadBookedSlots(selectedDate); // Belegte Slots neu laden
         setBookingStep(1);
         setIsLoading(false);
         return;
@@ -556,7 +585,7 @@ export default function StyleScheinApp() {
   const resetBooking = () => {
     setSelectedServices([]); setSelectedDate(null);
     setSelectedTime(null);
-    setBookingStep(0); setShowAltSlots(null); setSlotError(null);
+    setBookingStep(0); setShowAltSlots(null); setSlotError(null); setBookedSlots([]);
   };
 
   // Combined service info for multi-selection
@@ -889,7 +918,7 @@ export default function StyleScheinApp() {
                 const sel = selectedDate === f.full;
                 const isToday = f.full === formatDate(new Date()).full;
                 return (
-                  <div key={f.full} onClick={() => { setSelectedDate(f.full); setSelectedTime(null); setShowAltSlots(null); setSlotError(null); }} style={{
+                  <div key={f.full} onClick={() => { setSelectedDate(f.full); setSelectedTime(null); setShowAltSlots(null); setSlotError(null); loadBookedSlots(f.full); }} style={{
                     minWidth: 58, padding: "12px 6px", textAlign: "center",
                     borderRadius: 12, cursor: "pointer", transition: "all 0.2s",
                     background: sel ? C.goldBg : C.bgCard,
@@ -910,20 +939,23 @@ export default function StyleScheinApp() {
               <>
                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: C.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
                   {Icons.clock(14, C.textMuted)} Verfügbare Uhrzeiten
+                  {loadingSlots && <span style={{ fontSize: 11, color: C.textDim, marginLeft: 8 }}>Lade...</span>}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
                   {getTimeSlotsForDate(selectedDate).map(t => {
-                    const booked = isSlotBooked(selectedDate, t);
+                    const booked = bookedSlots.includes(t) || isSlotBooked(selectedDate, t);
                     const sel = selectedTime === t;
                     return (
-                      <button key={t} onClick={() => handleSlotClick(selectedDate, t)} style={{
+                      <button key={t} onClick={() => !booked && handleSlotClick(selectedDate, t)} style={{
                         padding: "12px", borderRadius: 10, border: "none",
-                        fontSize: 14, fontWeight: 600, cursor: "pointer",
+                        fontSize: 14, fontWeight: 600,
+                        cursor: booked ? "not-allowed" : "pointer",
                         fontFamily: "'Cormorant Garamond', serif", transition: "all 0.2s",
-                        background: sel ? C.gold : booked ? "rgba(217,64,64,0.1)" : C.bgCard,
-                        color: sel ? C.bg : booked ? "rgba(217,64,64,0.4)" : C.text,
+                        background: sel ? C.gold : booked ? "rgba(217,64,64,0.08)" : C.bgCard,
+                        color: sel ? C.bg : booked ? "rgba(217,64,64,0.35)" : C.text,
                         textDecoration: booked ? "line-through" : "none",
-                        border: booked ? "1px solid rgba(217,64,64,0.15)" : sel ? "none" : "1px solid rgba(255,255,255,0.04)",
+                        border: booked ? "1px solid rgba(217,64,64,0.12)" : sel ? "none" : "1px solid rgba(255,255,255,0.04)",
+                        opacity: booked ? 0.5 : 1,
                       }}>{t}</button>
                     );
                   })}
