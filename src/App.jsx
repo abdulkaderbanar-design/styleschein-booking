@@ -305,6 +305,16 @@ export default function StyleScheinApp() {
   const [bookingStep, setBookingStep] = useState(0);
   const [showAltSlots, setShowAltSlots] = useState(null);
   const [slotError, setSlotError] = useState(null);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  // PWA Install Prompt (Android)
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener("beforeinstallprompt", handler);
+    if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone) setIsInstalled(true);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
   const [userPhone, setUserPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -716,6 +726,45 @@ export default function StyleScheinApp() {
           </div>
         </a>
       </div>
+
+      {/* App installieren */}
+      {!isInstalled && (
+        <div style={{ padding: "0 20px 20px" }}>
+          <div style={{
+            padding: "20px", borderRadius: 14,
+            background: C.bgCard, border: `1px solid rgba(255,255,255,0.06)`,
+          }}>
+            <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+              {Icons.sparkle(16, C.gold)} Als App installieren
+            </h4>
+            {installPrompt ? (
+              <button onClick={async () => {
+                installPrompt.prompt();
+                const result = await installPrompt.userChoice;
+                if (result.outcome === "accepted") { setIsInstalled(true); setInstallPrompt(null); }
+              }} style={{
+                width: "100%", padding: "14px", borderRadius: 10, border: "none",
+                background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`,
+                color: C.bg, fontSize: 15, fontWeight: 700, cursor: "pointer",
+                fontFamily: "'Cormorant Garamond', serif",
+                boxShadow: `0 4px 16px ${C.gold}33`,
+              }}>Jetzt als App installieren</button>
+            ) : (
+              <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.8, fontFamily: "'Cormorant Garamond', serif" }}>
+                <div style={{ marginBottom: 8 }}>
+                  <strong style={{ color: C.text }}>iPhone:</strong> Tippe auf das Teilen-Symbol{" "}
+                  <span style={{ display: "inline-block", border: `1px solid ${C.textDim}`, borderRadius: 4, padding: "1px 5px", fontSize: 11 }}>↑</span>
+                  {" "}→ „Zum Home-Bildschirm"
+                </div>
+                <div>
+                  <strong style={{ color: C.text }}>Android:</strong> Chrome-Menü (⋮) → „App installieren"
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div style={{ height: 80 }} />
     </div>
   );
