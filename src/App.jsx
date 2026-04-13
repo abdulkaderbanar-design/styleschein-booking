@@ -564,13 +564,13 @@ export default function StyleScheinApp() {
           position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
           backgroundImage: `url(${INTERIOR_SRC})`,
           backgroundSize: "cover", backgroundPosition: "center",
-          filter: "brightness(0.25) saturate(0.8)",
+          filter: "brightness(0.45) saturate(0.9)",
           zIndex: 0,
         }} />
         {/* Dark gradient overlay */}
         <div style={{
           position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-          background: `linear-gradient(180deg, rgba(10,31,16,0.6) 0%, rgba(10,31,16,0.85) 100%)`,
+          background: `linear-gradient(180deg, rgba(10,31,16,0.4) 0%, rgba(10,31,16,0.75) 100%)`,
           zIndex: 1,
         }} />
         {/* Content */}
@@ -1146,9 +1146,9 @@ export default function StyleScheinApp() {
         </div>
       </div>
 
-      {screen === "home" && <HomeScreen />}
-      {screen === "book" && <BookScreen />}
-      {screen === "appointments" && <AppointmentsScreen />}
+      {screen === "home" && HomeScreen()}
+      {screen === "book" && BookScreen()}
+      {screen === "appointments" && AppointmentsScreen()}
     </div>
   );
 }
