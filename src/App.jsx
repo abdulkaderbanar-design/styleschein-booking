@@ -245,7 +245,7 @@ const ConfirmForm = memo(({ onBook, onBack, selectedServices, selectedDate, sele
         <label style={{ fontSize: 12, color: C.textMuted, display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontWeight: 600 }}>
           {Icons.phone(14, C.textMuted)} Telefon
         </label>
-        <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+49 170 1234567" type="tel" style={iStyle} />
+        <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="0152 1234567" type="tel" style={iStyle} />
       </div>
 
       {/* Reminder */}
@@ -296,7 +296,7 @@ const PhoneLookup = memo(({ onSearch, isLoading, initialPhone }) => {
         <input
           value={phone}
           onChange={e => setPhone(e.target.value)}
-          placeholder="Telefonnummer eingeben..."
+          placeholder="z.B. 0152 1234567"
           type="tel"
           style={{
             width: "100%", padding: "10px 36px 10px 14px", borderRadius: 10,
@@ -493,8 +493,13 @@ export default function StyleScheinApp() {
           dauer: String(totalDuration),
         })
       });
-      const data = await res.json();
-      if (data.success) {
+      
+      // Antwort als Text lesen und dann parsen (sicherer)
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e) { data = {}; }
+
+      if (data.success === true) {
         setToast({ message: "Termin erfolgreich gebucht!", type: "success" });
         setUserPhone(phone.trim());
         setSavedName(name.trim());
@@ -508,6 +513,7 @@ export default function StyleScheinApp() {
         setScreen("appointments");
         return;
       } else {
+        // Termin ist belegt — zurück zur Zeitauswahl
         setToast({ message: data.message || "Dieser Termin ist leider belegt — bitte wähle eine andere Zeit", type: "error" });
         setSlotError(selectedDate + " " + selectedTime);
         setBookingStep(1);
@@ -515,20 +521,10 @@ export default function StyleScheinApp() {
         return;
       }
     } catch (e) {
-      // Fallback: lokal speichern
-      const newAppt = {
-        id: Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
-        service: { name: serviceNames, price: totalPrice }, date: selectedDate, time: selectedTime,
-        customer: name.trim(), phone: phone.trim(), status: "confirmed",
-      };
-      const updated = [...appointments, newAppt];
-      setAppointments(updated);
-      await saveLocal(updated);
-      setToast({ message: "Termin lokal gespeichert (Offline)", type: "warning" });
+      // Netzwerkfehler — KEINEN lokalen Termin erstellen!
+      setToast({ message: "Verbindungsfehler — bitte prüfe dein Internet und versuche es erneut", type: "error" });
+      setIsLoading(false);
     }
-    setIsLoading(false);
-    resetBooking();
-    setScreen("appointments");
   };
 
   const handleCancel = async (id) => {
