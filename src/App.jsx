@@ -179,9 +179,9 @@ function getServiceIcon(cat) {
 }
 
 // Separate memoized form to prevent full app re-render on keystrokes
-const ConfirmForm = memo(({ onBook, onBack, selectedServices, selectedDate, selectedTime, totalPrice, totalDuration, serviceNames }) => {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+const ConfirmForm = memo(({ onBook, onBack, selectedServices, selectedDate, selectedTime, totalPrice, totalDuration, serviceNames, initialName, initialPhone }) => {
+  const [name, setName] = useState(initialName || "");
+  const [phone, setPhone] = useState(initialPhone || "");
   const [reminder, setReminder] = useState(true);
 
   const iStyle = {
@@ -305,17 +305,8 @@ export default function StyleScheinApp() {
   const [bookingStep, setBookingStep] = useState(0);
   const [showAltSlots, setShowAltSlots] = useState(null);
   const [slotError, setSlotError] = useState(null);
-  const [installPrompt, setInstallPrompt] = useState(null);
-  const [isInstalled, setIsInstalled] = useState(false);
-
-  // PWA Install Prompt (Android)
-  useEffect(() => {
-    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };
-    window.addEventListener("beforeinstallprompt", handler);
-    if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone) setIsInstalled(true);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, []);
   const [userPhone, setUserPhone] = useState("");
+  const [savedName, setSavedName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   // Termine vom n8n-Webhook laden
@@ -358,6 +349,8 @@ export default function StyleScheinApp() {
         if (r?.value) setAppointments(JSON.parse(r.value));
         const p = await window.storage.get("styleschein-phone");
         if (p?.value) setUserPhone(p.value);
+        const n = await window.storage.get("styleschein-name");
+        if (n?.value) setSavedName(n.value);
       } catch (e) {}
     })();
   }, []);
@@ -467,7 +460,11 @@ export default function StyleScheinApp() {
       if (data.success) {
         setToast({ message: "Termin erfolgreich gebucht!", type: "success" });
         setUserPhone(phone.trim());
-        try { await window.storage.set("styleschein-phone", phone.trim()); } catch(e){}
+        setSavedName(name.trim());
+        try { 
+          await window.storage.set("styleschein-phone", phone.trim());
+          await window.storage.set("styleschein-name", name.trim());
+        } catch(e){}
         await loadAppointments(phone.trim());
         setIsLoading(false);
         resetBooking();
@@ -727,44 +724,6 @@ export default function StyleScheinApp() {
         </a>
       </div>
 
-      {/* App installieren */}
-      {!isInstalled && (
-        <div style={{ padding: "0 20px 20px" }}>
-          <div style={{
-            padding: "20px", borderRadius: 14,
-            background: C.bgCard, border: `1px solid rgba(255,255,255,0.06)`,
-          }}>
-            <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-              {Icons.sparkle(16, C.gold)} Als App installieren
-            </h4>
-            {installPrompt ? (
-              <button onClick={async () => {
-                installPrompt.prompt();
-                const result = await installPrompt.userChoice;
-                if (result.outcome === "accepted") { setIsInstalled(true); setInstallPrompt(null); }
-              }} style={{
-                width: "100%", padding: "14px", borderRadius: 10, border: "none",
-                background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`,
-                color: C.bg, fontSize: 15, fontWeight: 700, cursor: "pointer",
-                fontFamily: "'Cormorant Garamond', serif",
-                boxShadow: `0 4px 16px ${C.gold}33`,
-              }}>Jetzt als App installieren</button>
-            ) : (
-              <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.8, fontFamily: "'Cormorant Garamond', serif" }}>
-                <div style={{ marginBottom: 8 }}>
-                  <strong style={{ color: C.text }}>iPhone:</strong> Tippe auf das Teilen-Symbol{" "}
-                  <span style={{ display: "inline-block", border: `1px solid ${C.textDim}`, borderRadius: 4, padding: "1px 5px", fontSize: 11 }}>↑</span>
-                  {" "}→ „Zum Home-Bildschirm"
-                </div>
-                <div>
-                  <strong style={{ color: C.text }}>Android:</strong> Chrome-Menü (⋮) → „App installieren"
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       <div style={{ height: 80 }} />
     </div>
   );
@@ -991,6 +950,8 @@ export default function StyleScheinApp() {
             totalPrice={totalPrice}
             totalDuration={totalDuration}
             serviceNames={serviceNames}
+            initialName={savedName}
+            initialPhone={userPhone}
           />
         )}
         <div style={{ height: 80 }} />
@@ -1033,6 +994,23 @@ export default function StyleScheinApp() {
           opacity: isLoading ? 0.6 : 1,
         }}>{isLoading ? "..." : "Laden"}</button>
       </div>
+
+      {/* Neuen Termin buchen — mit gespeicherten Kundendaten */}
+      <button onClick={() => { setScreen("book"); setBookingStep(0); }} style={{
+        width: "100%", padding: "14px", borderRadius: 12, border: "none",
+        background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`,
+        color: C.bg, fontSize: 15, fontWeight: 700, cursor: "pointer",
+        fontFamily: "'Cormorant Garamond', serif", marginBottom: 16,
+        boxShadow: `0 4px 16px ${C.gold}33`, letterSpacing: 0.5,
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+      }}>
+        {Icons.calendar(18, C.bg)} Neuen Termin buchen
+      </button>
+      {savedName && (
+        <p style={{ fontSize: 11, color: C.textDim, marginTop: -12, marginBottom: 14, textAlign: "center", fontFamily: "'Cormorant Garamond', serif" }}>
+          Deine Daten ({savedName}) werden automatisch übernommen
+        </p>
+      )}
 
       <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 16, fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic" }}>
         {activeAppointments.length} aktive Buchung{activeAppointments.length !== 1 ? "en" : ""}
