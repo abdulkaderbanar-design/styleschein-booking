@@ -304,6 +304,7 @@ export default function StyleScheinApp() {
   const [cancelConfirm, setCancelConfirm] = useState(null);
   const [bookingStep, setBookingStep] = useState(0);
   const [showAltSlots, setShowAltSlots] = useState(null);
+  const [slotError, setSlotError] = useState(null);
   const [userPhone, setUserPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -464,7 +465,7 @@ export default function StyleScheinApp() {
         return;
       } else {
         setToast({ message: data.message || "Dieser Termin ist leider belegt — bitte wähle eine andere Zeit", type: "error" });
-        // Zurück zur Zeitauswahl
+        setSlotError(selectedDate + " " + selectedTime);
         setBookingStep(1);
         setIsLoading(false);
         return;
@@ -515,7 +516,7 @@ export default function StyleScheinApp() {
   const resetBooking = () => {
     setSelectedServices([]); setSelectedDate(null);
     setSelectedTime(null);
-    setBookingStep(0); setShowAltSlots(null);
+    setBookingStep(0); setShowAltSlots(null); setSlotError(null);
   };
 
   // Combined service info for multi-selection
@@ -825,6 +826,21 @@ export default function StyleScheinApp() {
               {serviceNames} · {totalPrice}€ · ca. {totalDuration} Min.
             </p>
 
+            {/* Fehler-Banner wenn Termin belegt war */}
+            {slotError && (
+              <div style={{
+                padding: "14px 16px", borderRadius: 12, marginBottom: 16, marginTop: 10,
+                background: "rgba(217,64,64,0.12)", border: "1px solid rgba(217,64,64,0.25)",
+                display: "flex", alignItems: "center", gap: 10,
+              }}>
+                {Icons.x(18, C.error)}
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.error }}>Termin leider belegt!</div>
+                  <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>Bitte wähle eine andere Uhrzeit oder ein anderes Datum</div>
+                </div>
+              </div>
+            )}
+
             {/* Date carousel */}
             <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 10, marginTop: 16, marginBottom: 16 }}>
               {nextDays.slice(0, 12).map(d => {
@@ -832,7 +848,7 @@ export default function StyleScheinApp() {
                 const sel = selectedDate === f.full;
                 const isToday = f.full === formatDate(new Date()).full;
                 return (
-                  <div key={f.full} onClick={() => { setSelectedDate(f.full); setSelectedTime(null); setShowAltSlots(null); }} style={{
+                  <div key={f.full} onClick={() => { setSelectedDate(f.full); setSelectedTime(null); setShowAltSlots(null); setSlotError(null); }} style={{
                     minWidth: 58, padding: "12px 6px", textAlign: "center",
                     borderRadius: 12, cursor: "pointer", transition: "all 0.2s",
                     background: sel ? C.goldBg : C.bgCard,
@@ -939,16 +955,28 @@ export default function StyleScheinApp() {
 
       {/* Telefonnummer eingeben zum Nachschlagen */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, marginTop: 12 }}>
-        <input
-          value={userPhone}
-          onChange={e => setUserPhone(e.target.value)}
-          placeholder="Telefonnummer eingeben..."
-          style={{
-            flex: 1, padding: "10px 14px", borderRadius: 10,
-            background: "rgba(255,255,255,0.06)", border: `1px solid ${C.goldBorder}`,
-            color: C.text, fontSize: 14, fontFamily: "'Cormorant Garamond', serif", outline: "none",
-          }}
-        />
+        <div style={{ flex: 1, position: "relative" }}>
+          <input
+            value={userPhone}
+            onChange={e => setUserPhone(e.target.value)}
+            placeholder="Telefonnummer eingeben..."
+            type="tel"
+            style={{
+              width: "100%", padding: "10px 36px 10px 14px", borderRadius: 10,
+              background: "rgba(255,255,255,0.06)", border: `1px solid ${C.goldBorder}`,
+              color: C.text, fontSize: 14, fontFamily: "'Cormorant Garamond', serif", outline: "none",
+              boxSizing: "border-box",
+            }}
+          />
+          {userPhone && (
+            <button onClick={() => setUserPhone("")} style={{
+              position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+              background: "rgba(255,255,255,0.1)", border: "none", borderRadius: "50%",
+              width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", padding: 0,
+            }}>{Icons.x(12, C.textDim)}</button>
+          )}
+        </div>
         <button onClick={() => loadAppointments(userPhone)} style={{
           padding: "10px 18px", borderRadius: 10, border: "none",
           background: C.gold, color: C.bg, fontSize: 13, fontWeight: 700,
