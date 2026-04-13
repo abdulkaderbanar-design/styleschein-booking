@@ -287,6 +287,43 @@ const ConfirmForm = memo(({ onBook, onBack, selectedServices, selectedDate, sele
   );
 });
 
+// Separate memo component for phone lookup - prevents keyboard from closing
+const PhoneLookup = memo(({ onSearch, isLoading, initialPhone }) => {
+  const [phone, setPhone] = useState(initialPhone || "");
+  return (
+    <div style={{ display: "flex", gap: 8, marginBottom: 16, marginTop: 12 }}>
+      <div style={{ flex: 1, position: "relative" }}>
+        <input
+          value={phone}
+          onChange={e => setPhone(e.target.value)}
+          placeholder="Telefonnummer eingeben..."
+          type="tel"
+          style={{
+            width: "100%", padding: "10px 36px 10px 14px", borderRadius: 10,
+            background: "rgba(255,255,255,0.06)", border: `1px solid ${C.goldBorder}`,
+            color: C.text, fontSize: 14, fontFamily: "'Cormorant Garamond', serif", outline: "none",
+            boxSizing: "border-box",
+          }}
+        />
+        {phone && (
+          <button onClick={() => setPhone("")} style={{
+            position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+            background: "rgba(255,255,255,0.1)", border: "none", borderRadius: "50%",
+            width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", padding: 0,
+          }}>{Icons.x(12, C.textDim)}</button>
+        )}
+      </div>
+      <button onClick={() => onSearch(phone)} style={{
+        padding: "10px 18px", borderRadius: 10, border: "none",
+        background: C.gold, color: C.bg, fontSize: 13, fontWeight: 700,
+        cursor: "pointer", fontFamily: "'Cormorant Garamond', serif",
+        opacity: isLoading ? 0.6 : 1,
+      }}>{isLoading ? "..." : "Laden"}</button>
+    </div>
+  );
+});
+
 // ============================================
 // n8n Webhook URL - HIER DEINE URL EINTRAGEN!
 // Nach dem Import in n8n findest du die URL
@@ -963,37 +1000,12 @@ export default function StyleScheinApp() {
     <div style={{ padding: "16px 20px" }}>
       <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, marginBottom: 4 }}>Meine Termine</h3>
 
-      {/* Telefonnummer eingeben zum Nachschlagen */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, marginTop: 12 }}>
-        <div style={{ flex: 1, position: "relative" }}>
-          <input
-            value={userPhone}
-            onChange={e => setUserPhone(e.target.value)}
-            placeholder="Telefonnummer eingeben..."
-            type="tel"
-            style={{
-              width: "100%", padding: "10px 36px 10px 14px", borderRadius: 10,
-              background: "rgba(255,255,255,0.06)", border: `1px solid ${C.goldBorder}`,
-              color: C.text, fontSize: 14, fontFamily: "'Cormorant Garamond', serif", outline: "none",
-              boxSizing: "border-box",
-            }}
-          />
-          {userPhone && (
-            <button onClick={() => setUserPhone("")} style={{
-              position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
-              background: "rgba(255,255,255,0.1)", border: "none", borderRadius: "50%",
-              width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", padding: 0,
-            }}>{Icons.x(12, C.textDim)}</button>
-          )}
-        </div>
-        <button onClick={() => loadAppointments(userPhone)} style={{
-          padding: "10px 18px", borderRadius: 10, border: "none",
-          background: C.gold, color: C.bg, fontSize: 13, fontWeight: 700,
-          cursor: "pointer", fontFamily: "'Cormorant Garamond', serif",
-          opacity: isLoading ? 0.6 : 1,
-        }}>{isLoading ? "..." : "Laden"}</button>
-      </div>
+      {/* Telefonnummer — eigene Memo-Komponente, Tastatur bleibt offen */}
+      <PhoneLookup
+        initialPhone={userPhone}
+        isLoading={isLoading}
+        onSearch={(phone) => { setUserPhone(phone); loadAppointments(phone); }}
+      />
 
       {/* Neuen Termin buchen — mit gespeicherten Kundendaten */}
       <button onClick={() => { setScreen("book"); setBookingStep(0); }} style={{
